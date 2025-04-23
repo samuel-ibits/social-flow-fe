@@ -11,7 +11,7 @@ export default function Composer() {
         content: "",
         mediaUrls: [],
         platforms: [],
-        status: "draft",
+        status: "scheduled",
         scheduledAt: new Date().toISOString()
     });
     const dispatch = useDispatch();
@@ -111,12 +111,8 @@ export default function Composer() {
         setIsSubmitting(true);
 
         try {
-            // Replace with your actual API call
-            // await fetch('/api/posts', {
-            //   method: 'POST',
-            //   headers: { 'Content-Type': 'application/json' },
-            //   body: JSON.stringify({ ...post, status: 'scheduled' })
-            // });
+            await dispatch(createPost({ ...post, status: 'scheduled' })).unwrap();
+
 
             console.log("Scheduling post:", post);
             toast.success("Post scheduled successfully!");
