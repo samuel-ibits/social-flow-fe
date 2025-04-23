@@ -7,6 +7,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(),
     tailwindcss(),
-
   ],
+  preview: {
+    allowedHosts: ['social-flow-fe.onrender.com','0.0.0.0'],
+  }
 })
