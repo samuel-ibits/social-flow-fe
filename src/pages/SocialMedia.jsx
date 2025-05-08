@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, SearchIcon, TrashIcon, ExternalLinkIcon, AlertCircleIcon, CheckCircleIcon, RefreshCwIcon } from 'lucide-react';
+import { PlusIcon, SearchIcon, TrashIcon, ExternalLinkIcon, AlertCircleIcon, CheckCircleIcon, RefreshCwIcon, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { addSocialAccount, getSocialAccounts } from '../slices/socialSlice';
+import { getProjects, createProject } from '../slices/projectSlice';
+
 
 export default function SocialMediaAccountsPage() {
-    const [accounts, setAccounts] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+
+    // Redux state
+    const { socialAccounts, loading, error } = useSelector((state) => state.social);
+    const { projects: reduxProjects } = useSelector((state) => state.projects || { projects: [] });
+    const projectId = window.location.pathname.split('/')[2];
+    console.log('social', projectId, socialAccounts);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedProject, setSelectedProject] = useState('');
-    const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState({
-        projectId: '',
+        projectId: "",
         platform: '',
         accountName: '',
         accessToken: '',
@@ -28,88 +38,34 @@ export default function SocialMediaAccountsPage() {
         { id: 'tiktok', name: 'TikTok', logo: '/api/placeholder/24/24', color: 'bg-black' },
         { id: 'pinterest', name: 'Pinterest', logo: '/api/placeholder/24/24', color: 'bg-red-600' },
     ];
-
-    // Sample projects data
-    const sampleProjects = [
-        { id: '680353c0f7c994b61e9e33bd', name: 'Acme Corp' },
-        { id: '680353c0f7c994b61e9e33be', name: 'Globex Healthcare' },
-        { id: '680353c0f7c994b61e9e33bf', name: 'Initech Financial' },
-    ];
-
-    // Sample accounts data
-    const sampleAccounts = [
-        {
-            id: '1',
-            projectId: '680353c0f7c994b61e9e33bd',
-            platform: 'twitter',
-            accountName: '@3d7tech',
-            accessToken: '1393363644377968640-lXAjQ65DT03oKi10KlD6jCFu5o289u',
-            bearerToken: 'AAAAAAAAAAAAAAAAAAAAAPn%2FvgEAAAAApXW8rB8V%2BzqFoOoDAf46s%2BTJXV0%3D0ZnO94zmbiUCUIK3RF5JT4Ih9jZzQoLpC2dMD7KBu6OGhrTdX3',
-            refreshToken: 'refresh123',
-            expiresAt: '2025-06-30T00:00:00.000Z',
-            status: 'active'
-        },
-        {
-            id: '2',
-            projectId: '680353c0f7c994b61e9e33bd',
-            platform: 'instagram',
-            accountName: '@acmecorp_official',
-            accessToken: 'IGQVJYeW02ZAG5LR2RFNi1nUENtbkYzMlptRTRnMHdNSzJuY0k3ZAlk5T09XV3ZAOMDNoUUdLbno5WHFZIaTFGa2FtaWpXNTJVckdueU9BNkItM0tZAR3R2MTlhdTlHU0dUUFNQOU5zRjh3',
-            bearerToken: '',
-            refreshToken: 'refresh456',
-            expiresAt: '2025-05-15T00:00:00.000Z',
-            status: 'active'
-        },
-        {
-            id: '3',
-            projectId: '680353c0f7c994b61e9e33be',
-            platform: 'facebook',
-            accountName: 'Globex Healthcare',
-            accessToken: 'EAAEZAhglFmfMBANJbcPXdYgPvP6M5l3WYM3mUVRqZBc6DI2cXZCdDg2oJFuFzZBU9CaFIh6eFa71T3uIqRnZCHXZCTsB59LQaVbMkVSO25OWr2',
-            bearerToken: '',
-            refreshToken: 'refresh789',
-            expiresAt: '2025-04-30T00:00:00.000Z',
-            status: 'warning'
-        },
-        {
-            id: '4',
-            projectId: '680353c0f7c994b61e9e33bf',
-            platform: 'linkedin',
-            accountName: 'Initech Financial',
-            accessToken: 'AQXKjH1XAF-R4o-OULUbaTMdQT8bUwUxJr2u3oLQKEgRzFc5f3M9c0OjdzXj2FtBKO1SOyA',
-            bearerToken: '',
-            refreshToken: 'refresh101',
-            expiresAt: '2025-01-15T00:00:00.000Z',
-            status: 'expired'
-        }
-    ];
-
-    // Fetch accounts and projects
+    // Fetch projects
     useEffect(() => {
-        // Simulate API calls
+        // Simulate API call
         setTimeout(() => {
-            setAccounts(sampleAccounts);
-            setProjects(sampleProjects);
-            setIsLoading(false);
-        }, 800);
-    }, []);
+            dispatch(getProjects())
+                .unwrap()
+                .then((data) => {
+                    // setProjects(data);
+                    console.log(data);
+                })
+                .catch((error) => {
+                    console.error('Failed to fetch projects:', error);
+                });
+            // setIsLoading(false);
+        }, 400);
+    }, [])
 
-    // Handle form input changes
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-
-        // Clear error for this field
-        if (formErrors[name]) {
-            setFormErrors(prev => ({
-                ...prev,
-                [name]: undefined
-            }));
+    // Fetch accounts and projects from API
+    useEffect(() => {
+        if (selectedProject) {
+            dispatch(getSocialAccounts(selectedProject));
+        } else {
+            // If no project selected, fetch all accounts (empty string for all)
+            dispatch(getSocialAccounts(''));
         }
-    };
+        // Optionally, fetch projects if not already loaded
+        // (Assume projects are loaded elsewhere, e.g. ProjectsPage)
+    }, [dispatch, selectedProject]);
 
     // Basic validation
     const validateForm = () => {
@@ -134,55 +90,78 @@ export default function SocialMediaAccountsPage() {
         return Object.keys(errors).length === 0;
     };
 
+    // Handle form input changes
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+
+        // Clear error for this field
+        if (formErrors[name]) {
+            setFormErrors(prev => ({
+                ...prev,
+                [name]: undefined
+            }));
+        }
+    };
+
     // Handle form submission
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!validateForm()) return;
 
-        // Create new account with generated ID
-        const newAccount = {
-            id: Date.now().toString(),
-            ...formData,
-            status: 'active'
-        };
+        // Add new account via redux thunk
+        try {
+            await dispatch(addSocialAccount({
+                ...formData,
+                status: 'active'
+            })).unwrap();
 
-        // Add to accounts list
-        setAccounts([newAccount, ...accounts]);
+            setIsCreateModalOpen(false);
+            setFormData({
+                projectId: '',
+                platform: '',
+                accountName: '',
+                accessToken: '',
+                bearerToken: '',
+                refreshToken: '',
+                expiresAt: ''
+            });
 
-        // Close modal and reset form
-        setIsCreateModalOpen(false);
-        setFormData({
-            projectId: '',
-            platform: '',
-            accountName: '',
-            accessToken: '',
-            bearerToken: '',
-            refreshToken: '',
-            expiresAt: ''
-        });
+            // Refresh list
+            if (selectedProject) {
+                dispatch(getSocialAccounts(selectedProject));
+            } else {
+                dispatch(getSocialAccounts(''));
+            }
+        } catch (err) {
+            // Optionally handle error
+        }
     };
 
     // Get project name by ID
     const getProjectName = (projectId) => {
-        const project = projects.find(p => p.id === projectId);
+        const project = (reduxProjects || []).find(p => p.id === projectId || p._id === projectId);
         return project ? project.name : 'Unknown Project';
     };
 
     // Get platform details by ID
     const getPlatform = (platformId) => {
         return platforms.find(p => p.id === platformId) || {
-            name: platformId.charAt(0).toUpperCase() + platformId.slice(1),
+            name: platformId ? platformId.charAt(0).toUpperCase() + platformId.slice(1) : '',
             color: 'bg-gray-500'
         };
     };
 
     // Filter accounts based on search query and selected project
-    const filteredAccounts = accounts.filter(account => {
-        const matchesSearch = account.accountName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const filteredAccounts = (socialAccounts || []).filter(account => {
+        const matchesSearch = account.accountName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             getPlatform(account.platform).name.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesProject = selectedProject ? account.projectId === selectedProject : true;
+        const matchesProject = selectedProject ? (account.projectId === selectedProject || account.projectId === selectedProject) : true;
 
         return matchesSearch && matchesProject;
     });
@@ -238,7 +217,16 @@ export default function SocialMediaAccountsPage() {
             {/* Header */}
             <header className="bg-white shadow">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-gray-900">Social Media Accounts</h1>
+
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="p-2 hover:bg-gray-100 rounded-full"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                        <h1 className="text-2xl font-bold">Social Media Accounts</h1>
+                    </div>
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
@@ -275,15 +263,15 @@ export default function SocialMediaAccountsPage() {
                             onChange={(e) => setSelectedProject(e.target.value)}
                         >
                             <option value="">All Projects</option>
-                            {projects.map((project) => (
-                                <option key={project.id} value={project.id}>{project.name}</option>
+                            {(reduxProjects || []).map((project) => (
+                                <option key={project.id || project._id} value={project.id || project._id}>{project.name}</option>
                             ))}
                         </select>
                     </div>
                 </div>
 
                 {/* Loading state */}
-                {isLoading && (
+                {(loading) && (
                     <div className="flex justify-center items-center h-64">
                         <svg className="animate-spin -ml-1 mr-3 h-8 w-8 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -294,7 +282,7 @@ export default function SocialMediaAccountsPage() {
                 )}
 
                 {/* No accounts state */}
-                {!isLoading && filteredAccounts.length === 0 && (
+                {!loading && filteredAccounts.length === 0 && (
                     <div className="bg-white shadow rounded-lg p-6 text-center">
                         <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center">
                             <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -318,7 +306,7 @@ export default function SocialMediaAccountsPage() {
                 )}
 
                 {/* Accounts List */}
-                {!isLoading && filteredAccounts.length > 0 && (
+                {!loading && filteredAccounts.length > 0 && (
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                         <ul className="divide-y divide-gray-200">
                             {filteredAccounts.map((account) => {
@@ -326,7 +314,7 @@ export default function SocialMediaAccountsPage() {
                                 const daysUntilExpiry = getDaysUntilExpiration(account.expiresAt);
 
                                 return (
-                                    <li key={account.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                                    <li key={account.id || account._id} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center min-w-0 flex-1">
                                                 <div className={`flex-shrink-0 h-10 w-10 rounded-full ${platform.color} flex items-center justify-center text-white`}>
@@ -408,7 +396,7 @@ export default function SocialMediaAccountsPage() {
                 <div className="fixed z-10 inset-0 overflow-y-auto">
                     <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                         {/* Background overlay */}
-                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setIsCreateModalOpen(false)}></div>
+                        {/* <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setIsCreateModalOpen(false)}></div> */}
 
                         {/* Modal panel */}
                         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
@@ -445,8 +433,8 @@ export default function SocialMediaAccountsPage() {
                                                     className={`mt-1 block w-full bg-white border ${formErrors.projectId ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm`}
                                                 >
                                                     <option value="" disabled>Select a project</option>
-                                                    {projects.map((project) => (
-                                                        <option key={project.id} value={project.id}>{project.name}</option>
+                                                    {(reduxProjects || []).map((project) => (
+                                                        <option key={project.id || project._id} value={project.id || project._id}>{project.name}</option>
                                                     ))}
                                                 </select>
                                                 {formErrors.projectId && (

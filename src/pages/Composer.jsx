@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { Calendar, Image, Send, Clock, Trash, FileText, Twitter, Linkedin, Facebook, Instagram, ArrowLeft } from 'lucide-react';
-import { createPost } from '../slices/postSlice';
+import { Calendar, Image, Send, Clock, Trash, FileText, Twitter, Linkedin, Facebook, Instagram, ArrowLeft, Repeat } from 'lucide-react';
+import { createPost, uploadPostContent } from '../slices/postSlice';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { LOCAL_URL } from '../constants';
+
+
+const RECURRENCE_OPTIONS = [
+    { value: 'none', label: 'None' },
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' }
+];
 
 export default function Composer() {
     const [post, setPost] = useState({
@@ -12,13 +21,20 @@ export default function Composer() {
         mediaUrls: [],
         platforms: [],
         status: "scheduled",
-        scheduledAt: new Date().toISOString()
+        scheduledAt: new Date().toISOString(),
+        nextRunAt: null,
+        recurrence: 'none'
     });
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showAIPrompt, setShowAIPrompt] = useState(false);
+    const [aiPrompt, setAIPrompt] = useState("");
+    const [isUploading, setIsUploading] = useState(false);
+
+
 
     const platforms = [
         { id: "twitter", name: "Twitter", icon: Twitter },
@@ -38,18 +54,60 @@ export default function Composer() {
 
         setPost({ ...post, platforms: updatedPlatforms });
     };
-
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
+        const previousMediaUrls = [...post.mediaUrls];
 
-        // In a real app, you would upload these files to your server/CDN
-        // For now, we'll use object URLs to simulate this
-        const newMediaUrls = files.map(file => URL.createObjectURL(file));
+        // Show loading state while uploading
+        setIsUploading(true);
 
-        setPost({
-            ...post,
-            mediaUrls: [...post.mediaUrls, ...newMediaUrls]
-        });
+        try {
+            // Upload each file and get the returned URLs from the server
+            const uploadPromises = files.map(async (file) => {
+                const uploadData = {
+                    file,
+                    postId: post.id, // If editing an existing post
+                    // projectId: currentProject.id,
+                    type: 'image' // Specify the type of media
+                };
+
+                const result = await dispatch(uploadPostContent(uploadData)).unwrap();
+
+                // Return the URL from the server response
+                // Adjust this based on how your API returns the URL
+                // console.log("Upload result:", result);
+                return LOCAL_URL + result.path || LOCAL_URL + result.url;
+            });
+
+            const newServerMediaUrls = await Promise.all(uploadPromises);
+
+
+            // Update the post state with the new server URLs
+            setPost({
+                ...post,
+                mediaUrls: [...previousMediaUrls, ...newServerMediaUrls]
+            });
+
+            console.log("Upload post:", post);
+
+            // If you need to show a success message
+            toast.success('Images uploaded successfully');
+        } catch (error) {
+            // Handle any errors during upload
+            console.error('Upload failed', error);
+
+            // If you're using a toast library for notifications
+            toast.error('Failed to upload images: ' + (error.message || 'Unknown error'));
+
+            // You could optionally keep local URLs as fallback
+            // const newMediaUrls = files.map(file => URL.createObjectURL(file));
+            // setPost({
+            //     ...post,
+            //     mediaUrls: [...previousMediaUrls, ...newMediaUrls]
+            // });
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const removeMedia = (urlToRemove) => {
@@ -69,6 +127,30 @@ export default function Composer() {
         setShowDatePicker(false);
     };
 
+    const handleRecurrenceChange = (e) => {
+        const value = e.target.value;
+        setPost(prev => ({
+            ...prev,
+            recurrence: value,
+            // If recurrence is not 'none', set nextRunAt to scheduledAt or now
+            nextRunAt: value !== 'none'
+                ? (post.scheduledAt || new Date().toISOString())
+                : null
+        }));
+    };
+
+    const handleNextRunAtChange = (e) => {
+        const nextRunAt = e.target.value ? new Date(e.target.value).toISOString() : null;
+        setPost(prev => ({
+            ...prev,
+            nextRunAt
+        }));
+    };
+
+    const handleAIPromptChange = (e) => {
+        setAIPrompt(e.target.value);
+    };
+
     const publishNow = async () => {
         if (!post.content.trim() || post.platforms.length === 0) {
             toast.error("Please add content and select at least one platform");
@@ -84,7 +166,6 @@ export default function Composer() {
             toast.success("Post published successfully!");
             navigate(-1);
 
-
             // Reset form
             setPost({
                 projectId: "680353c0f7c994b61e9e33bd",
@@ -92,7 +173,9 @@ export default function Composer() {
                 mediaUrls: [],
                 platforms: [],
                 status: "draft",
-                scheduledAt: null
+                scheduledAt: null,
+                nextRunAt: null,
+                recurrence: 'none'
             });
         } catch (error) {
             console.error("Error publishing post:", error);
@@ -113,7 +196,6 @@ export default function Composer() {
         try {
             await dispatch(createPost({ ...post, status: 'scheduled' })).unwrap();
 
-
             console.log("Scheduling post:", post);
             toast.success("Post scheduled successfully!");
 
@@ -124,7 +206,9 @@ export default function Composer() {
                 mediaUrls: [],
                 platforms: [],
                 status: "draft",
-                scheduledAt: null
+                scheduledAt: null,
+                nextRunAt: null,
+                recurrence: 'none'
             });
         } catch (error) {
             console.error("Error scheduling post:", error);
@@ -134,17 +218,39 @@ export default function Composer() {
         }
     };
 
+    const toggleAIPrompt = () => {
+        setShowAIPrompt(!showAIPrompt);
+    };
+
     const generateAIContent = async () => {
+        if (!aiPrompt.trim() && showAIPrompt) {
+            toast.error("Please enter a prompt for the AI");
+            return;
+        }
+
         try {
             // This would connect to your AI generation service
             // In a real app, you would make an API call here
-            const aiGeneratedContent = "Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.";
-            setPost({ ...post, content: aiGeneratedContent });
+            let aiGeneratedContent;
+
+            if (showAIPrompt && aiPrompt) {
+                // Use the custom prompt
+                aiGeneratedContent = `Generated based on: "${aiPrompt}" - Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.`;
+            } else {
+                // Use default content
+                aiGeneratedContent = "Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.";
+            }
+
+            setPost({ ...post, content: aiGeneratedContent, aiGenerated: "true" });
+            setShowAIPrompt(false);
+            setAIPrompt("");
+            toast.success("AI content generated!");
         } catch (error) {
             console.error("Error generating content:", error);
             toast.error("Failed to generate content. Please try again.");
         }
     };
+
 
     return (
         <div className="p-6 max-w-4xl mx-auto">
@@ -192,6 +298,28 @@ export default function Composer() {
                     </div>
                 )}
 
+                {/* AI Prompt Input - Shows only when showAIPrompt is true */}
+                {showAIPrompt && (
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Enter your AI content prompt</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                className="flex-1 border rounded-md px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                placeholder="E.g., Write a promotional post about our new product launch"
+                                value={aiPrompt}
+                                onChange={handleAIPromptChange}
+                            />
+                            <button
+                                onClick={generateAIContent}
+                                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
+                            >
+                                Generate
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3 mb-6 items-center">
                     {/* Image Upload */}
@@ -208,18 +336,53 @@ export default function Composer() {
                     </label>
 
                     {/* Schedule */}
-                    <button
-                        className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
-                        onClick={() => setShowDatePicker(!showDatePicker)}
-                    >
-                        <Clock size={18} />
-                        <span>Schedule</span>
-                    </button>
+                    {post.recurrence === 'none' && (
+                        <button
+                            className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                            onClick={() => setShowDatePicker(!showDatePicker)}
+                        >
+                            <Clock size={18} />
+                            <span>Schedule</span>
+                        </button>
+                    )}
+
+                    {/* Recurrence */}
+                    <div className="flex items-center gap-1 px-3 py-2 bg-gray-100 rounded-md">
+                        <Repeat size={18} />
+                        <label htmlFor="recurrence" className="text-sm">Repeat</label>
+                        <select
+                            id="recurrence"
+                            className="ml-2 border rounded px-2 py-1 text-sm"
+                            value={post.recurrence}
+                            onChange={handleRecurrenceChange}
+                        >
+                            {RECURRENCE_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* If recurrence is not none, show nextRunAt input */}
+                    {post.recurrence !== 'none' && (
+                        <div className="flex items-center gap-1 px-3 py-2 bg-gray-100 rounded-md">
+                            <Clock size={16} />
+                            <label htmlFor="nextRunAt" className="text-sm">First Run</label>
+                            <input
+                                id="nextRunAt"
+                                type="datetime-local"
+                                className="ml-2 border rounded px-2 py-1 text-sm"
+                                value={post.nextRunAt ? new Date(post.nextRunAt).toISOString().slice(0, 16) : ''}
+                                onChange={handleNextRunAtChange}
+                                min={new Date().toISOString().slice(0, 16)}
+                            />
+                        </div>
+                    )}
 
                     {/* AI Generate */}
                     <button
                         className="flex items-center gap-1 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-md"
-                        onClick={generateAIContent}
+                        // onClick={generateAIContent}
+                        onClick={toggleAIPrompt}
                     >
                         <FileText size={18} />
                         <span>Generate with AI</span>
@@ -323,6 +486,18 @@ export default function Composer() {
                             <div className="text-gray-500 text-sm flex items-center gap-1 mt-2">
                                 <Clock size={14} />
                                 <span>Scheduled for {new Date(post.scheduledAt).toLocaleString()}</span>
+                            </div>
+                        )}
+
+                        {post.recurrence !== 'none' && post.nextRunAt && (
+                            <div className="text-gray-500 text-sm flex items-center gap-1 mt-2">
+                                <Repeat size={14} />
+                                <span>
+                                    Repeats: {RECURRENCE_OPTIONS.find(opt => opt.value === post.recurrence)?.label}
+                                    {post.nextRunAt && (
+                                        <> (First run: {new Date(post.nextRunAt).toLocaleString()})</>
+                                    )}
+                                </span>
                             </div>
                         )}
                     </div>

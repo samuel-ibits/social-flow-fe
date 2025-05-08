@@ -17,8 +17,8 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/projects" element={<Projects />} />
-        <Route path="/social-media" element={<SocialMedia />} />
-        <Route path="/composer" element={<Composer />} />
+        <Route path="/social-media/:projectId" element={<SocialMedia />} />
+        <Route path="/composer/:projectId" element={<Composer />} />
         <Route path="/posts/:projectId" element={<PostsList />} />
         <Route path="/logs" element={<Logs />} />
       </Routes>
