@@ -4,7 +4,7 @@ import { createPost, uploadPostContent } from '../slices/postSlice';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { LOCAL_URL } from '../constants';
+import { FILE_URL } from '../constants';
 
 
 const RECURRENCE_OPTIONS = [
@@ -76,7 +76,7 @@ export default function Composer() {
                 // Return the URL from the server response
                 // Adjust this based on how your API returns the URL
                 // console.log("Upload result:", result);
-                return LOCAL_URL + result.path || LOCAL_URL + result.url;
+                return FILE_URL + result.path || FILE_URL + result.url;
             });
 
             const newServerMediaUrls = await Promise.all(uploadPromises);
@@ -87,7 +87,7 @@ export default function Composer() {
                 ...post,
                 mediaUrls: [...previousMediaUrls, ...newServerMediaUrls]
             });
-
+            console.log('test', FILE_URL);
             console.log("Upload post:", post);
 
             // If you need to show a success message
