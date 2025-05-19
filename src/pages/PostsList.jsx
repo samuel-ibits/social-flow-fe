@@ -238,6 +238,7 @@ export default function PostsList() {
                                     <tr key={post.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4">
                                             <div className="flex items-start">
+                                                {console.log(post.mediaUrls)}
                                                 {post.mediaUrls && post.mediaUrls.length > 0 && (
                                                     <div className="flex-shrink-0 mr-3">
                                                         <img
