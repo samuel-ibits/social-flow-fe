@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Calendar, Image, Send, Clock, Trash, FileText, Twitter, Linkedin, Facebook, Instagram, ArrowLeft, Repeat } from 'lucide-react';
 import { createPost, uploadPostContent } from '../slices/postSlice';
+import { generateText } from '../slices/aiSlice';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -33,8 +34,6 @@ export default function Composer() {
     const [showAIPrompt, setShowAIPrompt] = useState(false);
     const [aiPrompt, setAIPrompt] = useState("");
     const [isUploading, setIsUploading] = useState(false);
-
-
 
     const platforms = [
         { id: "twitter", name: "Twitter", icon: Twitter },
@@ -235,7 +234,19 @@ export default function Composer() {
 
             if (showAIPrompt && aiPrompt) {
                 // Use the custom prompt
-                aiGeneratedContent = `Generated based on: "${aiPrompt}" - Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.`;
+                // aiGeneratedContent = `Generated based on: "${aiPrompt}" - Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.`;
+                //send dat to /generate-text
+                const response = await dispatch(generateText({ prompt: aiPrompt, provider: 'openrouter' })).unwrap();
+                aiGeneratedContent = response.content || "Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.";
+
+
+                // const response = await fetch('/generate-text', {
+                //     method: 'POST',
+                //     headers: {
+                //         'Content-Type': 'application/json'
+                //     },
+                //     body: JSON.stringify({ prompt, provider })
+                // });
             } else {
                 // Use default content
                 aiGeneratedContent = "Exciting updates coming soon! Stay tuned for our latest features that will transform how you work.";
